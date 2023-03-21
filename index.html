@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <script src="https://kit.fontawesome.com/0dc0dd2589.js" crossorigin="anonymous"></script>
+    <title>Minesweaper</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,800&display=swap');
+      :root{
+        --BlocksDefault:#272522;
+        --BlocksUncovered:#312E2B;
+        --BlocksExploded:orange;
+        --Flagged:rgb(173, 43, 43);
+      }
+      *{
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        color: white;
+      }
+      body{
+        background-color: #312E2B;
+        scroll-behavior: smooth;
+      }
+      #GameCanvas {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        max-width: 650px;
+        min-width: 235px;
+        overflow: hidden;
+        border-radius: 10px;
+        border: 1px solid black;
+        margin: auto;
+      }
+      .blocks{
+        aspect-ratio: 1/1;
+        background-color: var(--BlocksDefault);
+        color: var(--BlocksDefault);
+        text-align: center;
+        margin: 0;
+        
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    
+        -webkit-box-shadow:inset 0px 0px 0px 1px black;
+        -moz-box-shadow:inset 0px 0px 0px 1px black;
+        box-shadow:inset 0px 0px 0px 1px black;
+      }
+      .blocks:hover{
+        cursor: pointer;
+      }
+      .uncovered{
+        background-color: var(--BlocksUncovered);
+      }
+      .exploded{
+        background-color: var(--BlocksExploded);
+      }
+      .uncovered[data-number="1"]{
+        color: blue;
+      }
+      .uncovered[data-number="2"]{
+        color: green;
+      }
+      .uncovered[data-number="3"]{
+        color: red;
+      }
+      .uncovered[data-number="4"]{
+        color: purple;
+      }
+      .uncovered[data-number="5"]{
+        color: maroon;
+      }
+      .uncovered[data-number="6"]{
+        color: teal;
+      }
+      .uncovered[data-number="7"]{
+        color: black;
+      }
+      .uncovered[data-number="8"]{
+        color: gray;
+      }
+
+      .flagged{
+        background-color: var(--Flagged);
+      }
+  
+      .aiBTN{
+        position: relative;
+        background-color: #272522;
+        color: white;
+        padding: 7px 0px 7px 0px;
+        border: none;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        flex-grow: 1;
+      }
+      .aiBTN:hover{
+        cursor: pointer;
+        background-color: #22211f;
+      }
+
+      #win_lose_screen_main_div{
+        position: fixed;
+        z-index: 100;
+        display: none;
+      }
+      .win_Lose_screen{
+        position: relative;
+        width: 50vw;
+        background-color: #2b2a27;
+        display: flex;
+        flex-wrap: wrap;
+        padding: 10px 10px 10px 10px;
+        margin: auto;
+        border-radius: 10px;
+        top: 20%;
+      }
+    </style>
+</head>
+<body>
+  <div style="display: flex;flex-wrap: wrap;max-width: 650px;margin: auto;min-width: 235px;">
+    <h3 style="margin: 0;">Rows</h3>
+    <input id="sliderX" type="range" min="5" max="20" value="12" style="flex-grow: 1;">
+    <output id="sliderXOutput">12</output>
+  </div>
+  <div style="display: flex;flex-wrap: wrap;max-width: 650px;margin: auto;min-width: 235px;">
+    <h3 style="margin: 0;">Columns</h3>
+    <input id="sliderY" type="range" min="5" max="20" value="17" style="flex-grow: 1;">
+    <output id="sliderYOutput">17</output>
+  </div>
+  <div style="display: flex;flex-wrap: wrap;max-width: 650px;margin: auto;min-width: 235px;">
+    <h3 style="margin: 0;">Difficulty</h3>
+    <input id="sliderDifficulty" type="range" min="1" max="5" value="2" style="flex-grow: 1;">
+    <output id="sliderDifficultyOutput">2</output>
+  </div>
+  <div style="display: flex;max-width: 650px;min-width: 200px;margin: auto">
+    <button class="aiBTN" onclick="init()">Get Board</button>
+  </div>
+
+  <div id="win_lose_screen_main_div">
+    <div style="position: relative;width: 100vw;height: 100vh;">
+      <div class="win_Lose_screen">
+        <h1 id="win_lose_msg" style="flex-grow: 1;text-align: center;">Message</h1>
+        <button class="aiBTN" onclick="restart()">Reset Board</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="GameCanvas"></div>
+
+  <script>
+    let rows = 10;
+    let columns = 20;
+    let mines = 15;
+    const board = [];
+    const difficulty = ["Easy","Medium","Hard","Expert","Nightmare"];
+    let difficultyLevel = 2;
+    let lose = false;
+
+    const blocksPiecesDiv = [];
+
+    function sliders(){
+      document.getElementById("sliderX").addEventListener("input", function () {
+        document.getElementById("sliderXOutput").textContent = this.value;
+        rows = this.value;
+      });
+      document.getElementById("sliderY").addEventListener("input", function () {
+        document.getElementById("sliderYOutput").textContent = this.value;
+        columns = this.value;
+      });
+      document.getElementById("sliderDifficulty").addEventListener("input", function () {
+        document.getElementById("sliderDifficultyOutput").textContent = this.value;
+        difficultyLevel = this.value;
+      });
+    }
+
+    init();
+    function init(){
+      rows = document.getElementById("sliderX").value;
+      columns = document.getElementById("sliderY").value;
+      difficultyLevel = document.getElementById("sliderDifficulty").value;
+      lose = false;
+      sliders();
+      //Difficulty Set
+      let totalTiles = rows*columns;
+      //Random Difficulty Level
+      //difficultyLevel = getRandomNumber(0,difficulty.length);
+      console.log(difficulty[difficultyLevel-1]);
+      mines = calculateTotalMines(totalTiles,difficulty[difficultyLevel-1]);
+
+      window.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+      });
+
+      deleteAllPieces();
+      initializeTheBoard();
+      placeMinesRandomly();
+      fillNumbersOnTheBoard();
+      createTable();
+      addEventListenerToAllPieces();
+    }
+
+    function restart(){
+      document.getElementById("win_lose_screen_main_div").style.display = 'none';
+      init();
+    }
+    //Delete Everything from Array
+    function deleteAllPieces(){
+      board.length=0;
+      for(i=0;i<blocksPiecesDiv.length;i++){
+            for(j=0;j<blocksPiecesDiv[i].length;j++){
+              blocksPiecesDiv[i][j].remove();
+            }
+        }
+      blocksPiecesDiv.length=0
+    }
+
+    // Initialize the board with random values
+    function initializeTheBoard(){
+      for (let i = 0; i < rows; i++) {
+        const row = [];
+        for (let j = 0; j < columns; j++) {
+          row.push(0);
+        }
+        board.push(row);
+      }
+    }
+
+    // Place mines randomly on the board
+    function placeMinesRandomly(){
+      for (let i = 0; i < mines; i++) {
+        let x = Math.floor(Math.random() * rows);
+        let y = Math.floor(Math.random() * columns);
+        while (board[x][y] === "X") {
+          x = Math.floor(Math.random() * rows);
+          y = Math.floor(Math.random() * columns);
+        }
+        board[x][y] = "X";
+      }
+    }
+
+    // Fill in the numbers on the board
+    function fillNumbersOnTheBoard(){
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < columns; j++) {
+          if (board[i][j] !== "X") {
+            let count = 0;
+            if (i > 0 && board[i - 1][j] === "X") count++;
+            if (j > 0 && board[i][j - 1] === "X") count++;
+            if (i < rows - 1 && board[i + 1][j] === "X") count++;
+            if (j < columns - 1 && board[i][j + 1] === "X") count++;
+            if (i > 0 && j > 0 && board[i - 1][j - 1] === "X") count++;
+            if (i > 0 && j < columns - 1 && board[i - 1][j + 1] === "X") count++;
+            if (i < rows - 1 && j > 0 && board[i + 1][j - 1] === "X") count++;
+            if (i < rows - 1 && j < columns - 1 && board[i + 1][j + 1] === "X") count++;
+            board[i][j] = count;
+          }
+        }
+      }
+    }
+
+    // Create the table and add it to the HTML
+    function createTable(){
+      const table = document.getElementById("GameCanvas");
+      for (let i = 0; i < rows; i++) {
+        blocksPiecesDiv[i] = [];
+        for (let j = 0; j < columns; j++) {
+          let cell = document.createElement('div');
+          cell.classList.add("blocks");
+
+          if(board[i][j]=="X"){
+            cell.classList.add("mine");
+          }
+          cell.dataset.row = i;
+          cell.dataset.column = j;
+          cell.style.width=(100/columns)+"%";
+          table.appendChild(cell);
+          cell.dataset.number = board[i][j];
+          //cell.innerHTML = (board[i][j]!=0)?board[i][j]:"";
+          blocksPiecesDiv[i][j] = cell;
+        }
+      }
+    }
+
+    //Adding Event Listner to all Pieces
+    function addEventListenerToAllPieces(){
+      for(i=0;i<blocksPiecesDiv.length;i++){
+        for(j=0;j<blocksPiecesDiv[i].length;j++){
+          const divs = blocksPiecesDiv[i][j];
+          divs.addEventListener("mousedown", function(e) {
+            
+            if(!lose){
+              if (e.which === 1) {
+                if(divs.classList.contains("mine")){
+                  console.log("Lose");
+                  lose = true;
+                  const mines = document.getElementsByClassName("mine");
+                  for(k=0;k<mines.length;k++){
+                    mines[k].classList.add("exploded");
+                    mines[k].innerHTML = "X";
+                  }
+                  showLoseScreen()
+                }
+                else{
+                    floodFill(blocksPiecesDiv,parseInt(divs.dataset.row),parseInt(divs.dataset.column));
+                }
+              } else if (e.which === 3) {
+                if(!divs.classList.contains("uncovered")){
+                  if(divs.classList.contains("flagged")){
+                    divs.classList.remove("flagged");
+                  }else{
+                    divs.classList.add("flagged");
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+    
+    //check if win
+    function checkWin(){
+      if ((document.getElementsByClassName("blocks").length)-mines == document.getElementsByClassName("uncovered").length){
+        console.log("Win");
+        document.getElementById("win_lose_screen_main_div").style.display = 'block';
+        document.getElementById("win_lose_msg").textContent = "Win";
+        //display winning screen
+      }
+    }
+
+    //check if Lose
+    function showLoseScreen(){
+      //displayLosingScreen
+      document.getElementById("win_lose_screen_main_div").style.display = 'block';
+      document.getElementById("win_lose_msg").textContent = "Lose";
+    }
+    
+    //Flood Fill Algorithm
+    const floodFill = (board, i, j) => {
+      if (i < 0 || i >= rows || j < 0 || j >= columns) {
+        return;
+      }
+      if (board[i][j].classList.contains("uncovered") || board[i][j].classList.contains("mine")) {
+        return;
+      }
+      board[i][j].classList.add("uncovered");
+      board[i][j].innerHTML = (board[i][j].dataset.number!=0)?board[i][j].dataset.number:"";
+      checkWin();
+      if (board[i][j].textContent === "") {
+        floodFill(board, i - 1, j);
+        floodFill(board, i + 1, j);
+        floodFill(board, i, j - 1);
+        floodFill(board, i, j + 1);
+        
+        floodFill(board, i - 1, j - 1);
+        floodFill(board, i - 1, j + 1);
+        floodFill(board, i + 1, j - 1);
+        floodFill(board, i + 1, j + 1);
+      }
+    };
+
+    //Calculte difficulty
+    function calculateTotalMines(totalTiles, difficulty) {
+      let mineDensity;
+      switch (difficulty) {
+        case "Easy":
+          mineDensity = 5;
+          break;
+        case "Medium":
+          mineDensity = 20;
+          break;
+        case "Hard":
+          mineDensity = 35;
+          break;
+        case "Expert":
+          mineDensity = 45;
+          break;
+        case "Nightmare":
+          mineDensity = 65;
+          break;
+        default:
+          mineDensity = 10;
+          break;
+      }
+      return Math.ceil(totalTiles * (mineDensity / 100));
+    }
+
+    //Generate random numbers between min and max
+    function getRandomNumber(min, max) {
+      return Math.floor(Math.random() * (max - min + 1) + min);
+    }
+  </script>
+</body>
+</html>
